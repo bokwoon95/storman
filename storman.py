@@ -235,6 +235,12 @@ def main(browser_context: playwright.sync_api.BrowserContext) -> None:
         sqlite_connection.execute(
             "CREATE TABLE IF NOT EXISTS storman (crawl_date, path, type, name, total_size, percentage_of_parent, percentage_of_site_quota, last_modified, details, PRIMARY KEY (crawl_date, path))"
         )
+        sqlite_connection.execute(
+            "CREATE INDEX IF NOT EXISTS storman_path_idx ON storman (path)"
+        )
+        sqlite_connection.execute(
+            "CREATE INDEX IF NOT EXISTS storman_name_idx ON storman (name)"
+        )
 
     # Wrap the main loop in a try so we can silence exceptions due to
     # cancellation (user presses CTRL+C or closes the browser window) but let
