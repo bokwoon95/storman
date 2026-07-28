@@ -24,10 +24,8 @@
   </div>
 </div>
 <div class="table-controls">
-  <label>
-    Search:
-    <input id="table-search" type="search" placeholder="Filter by name or path" disabled>
-  </label>
+  <textarea id="query-text" rows="5" spellcheck="false" disabled></textarea>
+  <button id="run-query" type="button" disabled>Run Query</button>
 </div>
 <div class="table-wrapper">
   <table id="results"></table>
