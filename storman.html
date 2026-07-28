@@ -1,0 +1,34 @@
+<title>Storman data</title>
+<header>
+  <h1>SharePoint Storage Metrics</h1>
+  <span id="status">Loading SQLite…</span>
+  <label>
+    Open another database:
+    <input id="database-file" type="file" accept=".db,.sqlite,.sqlite3,application/vnd.sqlite3">
+  </label>
+</header>
+<div class="workspace">
+  <div class="tree-pane">
+    <div class="tree-controls">
+      <button id="uncheck-all" type="button" disabled>Uncheck all</button>
+    </div>
+    <div id="file-tree" aria-label="Files and folders"></div>
+  </div>
+  <div class="chart-pane">
+    <div class="chart-controls" role="radiogroup" aria-label="Scale">
+      <span>Scale:</span>
+      <label><input type="radio" name="chart-scale" value="relative" checked> Relative</label>
+      <label><input type="radio" name="chart-scale" value="absolute"> Absolute</label>
+    </div>
+    <div id="chart" role="button" tabindex="0" aria-label="Size over time for selected files and folders; click to open a database"></div>
+  </div>
+</div>
+<div class="table-controls">
+  <label>
+    Search:
+    <input id="table-search" type="search" placeholder="Filter by name or path" disabled>
+  </label>
+</div>
+<div class="table-wrapper">
+  <table id="results"></table>
+</div>

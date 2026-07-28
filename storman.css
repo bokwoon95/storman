@@ -1,0 +1,33 @@
+:root { color-scheme: light dark; font-family: system-ui, sans-serif; }
+body { margin: 2rem; }
+header { display: flex; align-items: baseline; flex-wrap: wrap; gap: 0.75rem 1rem; margin-bottom: 1rem; }
+h1 { margin: 0; }
+#status { color: #666; }
+#status.error { color: #c00; }
+.workspace { display: grid; grid-template-columns: minmax(16rem, 30%) minmax(0, 1fr); height: min(40rem, calc(100vh - 9rem)); min-height: 24rem; margin-bottom: 1rem; border: 1px solid #8888; }
+.tree-pane { display: grid; grid-template-rows: auto minmax(0, 1fr); min-width: 0; min-height: 0; border-right: 1px solid #8888; }
+.tree-controls { padding: 0.5rem; border-bottom: 1px solid #8888; }
+#file-tree { min-width: 0; overflow: auto; padding: 0.5rem; white-space: nowrap; }
+.chart-pane { display: grid; grid-template-rows: auto minmax(0, 1fr); min-width: 0; min-height: 0; }
+.chart-controls { display: flex; align-items: center; gap: 1rem; padding: 0.5rem 0.75rem; border-bottom: 1px solid #8888; }
+.chart-controls label { display: flex; align-items: center; gap: 0.25rem; }
+#chart { min-width: 0; min-height: 0; }
+#chart, #chart canvas { cursor: default !important; }
+#chart.database-drop-target, #chart.database-drop-target canvas { cursor: pointer !important; }
+.table-controls { margin-bottom: 0.5rem; }
+.table-controls label { display: flex; align-items: center; gap: 0.5rem; }
+#table-search { width: min(30rem, 60vw); }
+.table-wrapper { max-height: calc(100vh - 8rem); overflow: auto; border: 1px solid #8888; }
+table { width: 100%; border-collapse: collapse; font-size: 0.875rem; white-space: nowrap; }
+th, td { padding: 0.4rem 0.6rem; border-bottom: 1px solid #8884; text-align: left; }
+th { position: sticky; top: 0; background: Canvas; }
+tbody tr:nth-child(even) { background: #8881; }
+.name-cell { max-width: min(14rem, 20vw); }
+.name-content { display: flex; align-items: center; gap: 0.25rem; width: min(14rem, 20vw); }
+.name-value { display: block; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; cursor: text; user-select: text; }
+.path-cell { max-width: min(30rem, 35vw); }
+.path-value { display: block; width: min(30rem, 35vw); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; cursor: text; user-select: text; }
+@media (max-width: 48rem) {
+  .workspace { grid-template-columns: 1fr; grid-template-rows: minmax(12rem, 40%) minmax(0, 1fr); }
+  .tree-pane { border-right: 0; border-bottom: 1px solid #8888; }
+}
