@@ -96,9 +96,9 @@ LIMIT 1000`;
   });
   new ResizeObserver(() => chart.resize()).observe(chartElement);
   const drawSelectedNodes = () => {
-    const relative =
-      document.querySelector('input[name="chart-scale"]:checked').value ===
-      "relative";
+    const changeInSize =
+      document.querySelector('input[name="y-axis-type"]:checked').value ===
+      "change-in-size";
     chart.setOption({
       title: {
         show: selectedNodes.size === 0,
@@ -107,7 +107,7 @@ LIMIT 1000`;
           : "Click here to choose a file, or drag and drop in a file"
       },
       legend: { data: [...selectedNodes.keys()] },
-      yAxis: { name: relative ? "Change in size" : "Size" },
+      yAxis: { name: changeInSize ? "Change in size" : "Size" },
       series: [...selectedNodes.values()].map((selectedNode) => ({
         name: selectedNode.path,
         type: "line",
@@ -115,7 +115,7 @@ LIMIT 1000`;
         connectNulls: false,
         data: selectedNode.xy.map(([timestamp, size]) => [
           timestamp * 1000,
-          relative ? size - selectedNode.xy[0][1] : size
+          changeInSize ? size - selectedNode.xy[0][1] : size
         ])
       }))
     }, { replaceMerge: ["series"] });
@@ -126,7 +126,7 @@ LIMIT 1000`;
     uncheckAll.disabled = selectedNodes.size === 0;
   };
   document.querySelector(".chart-controls").addEventListener("change", (event) => {
-    if (event.target.name === "chart-scale") drawSelectedNodes();
+    if (event.target.name === "y-axis-type") drawSelectedNodes();
   });
 
   const executeQuery = () => {
