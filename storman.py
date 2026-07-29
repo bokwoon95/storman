@@ -231,7 +231,7 @@ def main(browser_context: playwright.sync_api.BrowserContext) -> None:
 
     sqlite_connection: sqlite3.Connection | None = None
     if args.sqlite_path != "":
-        sqlite_connection = sqlite3.connect(os.path.expanduser(args.sqlite_path))
+        sqlite_connection = sqlite3.connect(os.path.expanduser(args.sqlite_path), autocommit=True)
         sqlite_connection.execute(
             "CREATE TABLE IF NOT EXISTS storman (crawl_date, path, type, name, total_size, percentage_of_parent, percentage_of_site_quota, last_modified, details, PRIMARY KEY (crawl_date, path))"
         )
