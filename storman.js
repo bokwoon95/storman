@@ -361,32 +361,24 @@ LIMIT 1000`;
           leftTimestamp - rightTimestamp
         );
         if (node.xy.length > 0) node.totalSize = node.xy.at(-1)[1];
-        node.gradient = 0;
-        node.percentageChange = 0;
+        node.sizeChange = 0;
+        node.days = 0;
         if (node.xy.length > 1) {
-          const meanX =
-            node.xy.reduce((sum, [x]) => sum + x, 0) / node.xy.length;
-          const meanY =
-            node.xy.reduce((sum, [, y]) => sum + y, 0) / node.xy.length;
-          let numerator = 0;
-          let denominator = 0;
-          for (const [x, y] of node.xy) {
-            numerator += (x - meanX) * (y - meanY);
-            denominator += (x - meanX) ** 2;
-          }
-          if (denominator !== 0) {
-            node.gradient = numerator / denominator;
-            const fittedFirstSize =
-              meanY + node.gradient * (node.xy[0][0] - meanX);
-            const fittedLastSize =
-              meanY + node.gradient * (node.xy.at(-1)[0] - meanX);
-            if (fittedFirstSize !== 0) {
-              node.percentageChange =
-                (fittedLastSize - fittedFirstSize) /
-                Math.abs(fittedFirstSize) *
-                100;
-            }
-          }
+          node.sizeChange = node.xy.at(-1)[1] - node.xy[0][1];
+          const firstDate = new Date(node.xy[0][0] * 1000);
+          const lastDate = new Date(node.xy.at(-1)[0] * 1000);
+          node.days = (
+            Date.UTC(
+              lastDate.getFullYear(),
+              lastDate.getMonth(),
+              lastDate.getDate()
+            ) -
+            Date.UTC(
+              firstDate.getFullYear(),
+              firstDate.getMonth(),
+              firstDate.getDate()
+            )
+          ) / (24 * 60 * 60 * 1000);
         }
       }
       for (const siblings of siblingGroups) {
@@ -431,6 +423,13 @@ LIMIT 1000`;
             Math.floor(Math.log(Math.abs(totalSize)) / Math.log(1000)),
             6
           );
+        const absoluteSizeChange = Math.abs(node.sizeChange);
+        const sizeChangeUnitIndex = absoluteSizeChange === 0
+          ? 0
+          : Math.min(
+            Math.floor(Math.log(absoluteSizeChange) / Math.log(1000)),
+            6
+          );
         label.textContent = `${{
           Web: "\u{1F310}",
           Folder: "\u{1F4C2}",
@@ -443,7 +442,15 @@ LIMIT 1000`;
           "TB",
           "PB",
           "EB"
-        ][unitIndex]}, ${node.percentageChange > 0 ? "\u{2B06}\u{FE0F}" : node.percentageChange < 0 ? "\u{2B07}\u{FE0F}" : "\u{27A1}\u{FE0F}"}${Math.abs(node.percentageChange).toFixed(1)}%)`;
+        ][unitIndex]}, ${node.sizeChange > 0 ? "\u{2B06}\u{FE0F}" : node.sizeChange < 0 ? "\u{2B07}\u{FE0F}" : "\u{27A1}\u{FE0F}"}${sizeChangeUnitIndex === 0 ? absoluteSizeChange : (absoluteSizeChange / 1000 ** sizeChangeUnitIndex).toFixed(1)} ${[
+          "B",
+          "KB",
+          "MB",
+          "GB",
+          "TB",
+          "PB",
+          "EB"
+        ][sizeChangeUnitIndex]} over ${node.days} ${node.days === 1 ? "day" : "days"})`;
         label.style.marginLeft = "0";
         label.addEventListener("click", (event) => {
           event.preventDefault();
