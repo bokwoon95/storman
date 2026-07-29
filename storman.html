@@ -1,4 +1,4 @@
-<title>Storman data</title>
+<title>SharePoint Storage Metrics</title>
 <header>
   <h1>SharePoint Storage Metrics</h1>
   <span id="status">Loading SQLite…</span>
@@ -8,18 +8,19 @@
   </label>
 </header>
 <div class="workspace">
-  <div class="tree-pane">
-    <div class="tree-controls">
-      <button id="uncheck-all" type="button" disabled>Uncheck all</button>
-    </div>
-    <div id="file-tree" aria-label="Files and folders"></div>
-  </div>
-  <div class="chart-pane">
-    <div class="chart-controls" role="radiogroup" aria-label="Scale">
+  <div class="workspace-controls">
+    <button id="uncheck-all" type="button" disabled>Uncheck all</button>
+    <div class="y-axis-controls" role="radiogroup" aria-label="Y-axis">
       <span>Y-axis:</span>
       <label><input type="radio" name="y-axis-type" value="change-in-size" checked> Change in size</label>
       <label><input type="radio" name="y-axis-type" value="size"> Size</label>
     </div>
+    <label>Start Date: <input id="start-date" type="date"></label>
+  </div>
+  <div class="tree-pane">
+    <div id="file-tree" aria-label="Files and folders"></div>
+  </div>
+  <div class="chart-pane">
     <div id="chart" role="button" tabindex="0" aria-label="Size over time for selected files and folders; click to open a database"></div>
   </div>
 </div>

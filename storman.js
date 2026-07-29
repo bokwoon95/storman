@@ -31,6 +31,7 @@ document.addEventListener("DOMContentLoaded", async function main() {
   const chart = echarts.init(chartElement);
   const selectedNodes = new Map();
   const uncheckAll = document.querySelector("#uncheck-all");
+  const startDate = document.querySelector("#start-date");
   const initialQuery = `SELECT crawl_date, name, path, total_size, percentage_of_site_quota, last_modified, type, details
 FROM storman
 ORDER BY crawl_date DESC, path
@@ -99,6 +100,9 @@ LIMIT 1000`;
     const changeInSize =
       document.querySelector('input[name="y-axis-type"]:checked').value ===
       "change-in-size";
+    const startTimestamp = startDate.value === ""
+      ? Number.NEGATIVE_INFINITY
+      : Date.parse(`${startDate.value}T00:00:00Z`) / 1000;
     chart.setOption({
       title: {
         show: selectedNodes.size === 0,
@@ -108,16 +112,21 @@ LIMIT 1000`;
       },
       legend: { data: [...selectedNodes.keys()] },
       yAxis: { name: changeInSize ? "Change in size" : "Size" },
-      series: [...selectedNodes.values()].map((selectedNode) => ({
-        name: selectedNode.path,
-        type: "line",
-        showSymbol: selectedNode.xy.length < 50,
-        connectNulls: false,
-        data: selectedNode.xy.map(([timestamp, size]) => [
-          timestamp * 1000,
-          changeInSize ? size - selectedNode.xy[0][1] : size
-        ])
-      }))
+      series: [...selectedNodes.values()].map((selectedNode) => {
+        const xy = selectedNode.xy.filter(
+          ([timestamp]) => timestamp >= startTimestamp
+        );
+        return {
+          name: selectedNode.path,
+          type: "line",
+          showSymbol: xy.length < 50,
+          connectNulls: false,
+          data: xy.map(([timestamp, size]) => [
+            timestamp * 1000,
+            changeInSize ? size - xy[0][1] : size
+          ])
+        };
+      })
     }, { replaceMerge: ["series"] });
     chartElement.classList.toggle(
       "database-drop-target",
@@ -125,8 +134,13 @@ LIMIT 1000`;
     );
     uncheckAll.disabled = selectedNodes.size === 0;
   };
-  document.querySelector(".chart-controls").addEventListener("change", (event) => {
-    if (event.target.name === "y-axis-type") drawSelectedNodes();
+  document.querySelector(".workspace-controls").addEventListener("change", (event) => {
+    if (
+      event.target.name === "y-axis-type" ||
+      event.target === startDate
+    ) {
+      drawSelectedNodes();
+    }
   });
 
   const executeQuery = () => {
@@ -436,14 +450,13 @@ LIMIT 1000`;
           checkbox.click();
         });
         element.replaceChildren(checkbox, label);
-        element.addEventListener("dblclick", (event) => {
-          if (element.tagName !== "SUMMARY") return;
-          event.preventDefault();
-          event.stopPropagation();
-          element.parentElement.open = !element.parentElement.open;
-        });
+        if (treeData.includes(node)) {
+          checkbox.checked = true;
+          selectedNodes.set(node.path, node);
+        }
       });
       tree.json(treeData);
+      drawSelectedNodes();
 
       if (database) database.close();
       database = nextDatabase;

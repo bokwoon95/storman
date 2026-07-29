@@ -9,13 +9,13 @@ header { display: flex; align-items: baseline; flex-wrap: wrap; gap: 0.75rem 1re
 h1 { margin: 0; }
 #status { color: #666; }
 #status.error { color: #c00; }
-.workspace { display: grid; grid-template-columns: minmax(16rem, 30%) minmax(0, 1fr); height: min(40rem, calc(100vh - 9rem)); min-height: 24rem; margin-bottom: 1rem; border: 1px solid #8888; }
-.tree-pane { display: grid; grid-template-rows: auto minmax(0, 1fr); min-width: 0; min-height: 0; border-right: 1px solid #8888; }
-.tree-controls { padding: 0.5rem; border-bottom: 1px solid #8888; }
+.workspace { display: grid; grid-template-columns: minmax(16rem, 30%) minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); height: min(40rem, calc(100vh - 9rem)); min-height: 24rem; margin-bottom: 1rem; border: 1px solid #8888; }
+.workspace-controls { grid-column: 1 / -1; display: flex; align-items: center; flex-wrap: wrap; gap: 0.5rem 2rem; padding: 0.5rem 0.75rem; border-bottom: 1px solid #8888; }
+.workspace-controls label, .y-axis-controls { display: flex; align-items: center; gap: 0.25rem; }
+.y-axis-controls { gap: 1rem; }
+.tree-pane { display: grid; grid-template-rows: minmax(0, 1fr); min-width: 0; min-height: 0; border-right: 1px solid #8888; }
 #file-tree { min-width: 0; overflow: auto; padding: 0.5rem; white-space: nowrap; }
-.chart-pane { display: grid; grid-template-rows: auto minmax(0, 1fr); min-width: 0; min-height: 0; }
-.chart-controls { display: flex; align-items: center; gap: 1rem; padding: 0.5rem 0.75rem; border-bottom: 1px solid #8888; }
-.chart-controls label { display: flex; align-items: center; gap: 0.25rem; }
+.chart-pane { display: grid; grid-template-rows: minmax(0, 1fr); min-width: 0; min-height: 0; }
 #chart { min-width: 0; min-height: 0; }
 #chart, #chart canvas { cursor: default !important; }
 #chart.database-drop-target, #chart.database-drop-target canvas { cursor: pointer !important; }
@@ -33,7 +33,7 @@ tbody tr:nth-child(even) { background: #8881; }
 .path-cell { max-width: min(30rem, 35vw); }
 .path-value { display: block; width: min(30rem, 35vw); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; cursor: text; user-select: text; }
 @media (max-width: 48rem) {
-  .workspace { grid-template-columns: 1fr; grid-template-rows: minmax(12rem, 40%) minmax(0, 1fr); }
+  .workspace { grid-template-columns: 1fr; grid-template-rows: auto minmax(12rem, 40%) minmax(0, 1fr); }
   .tree-pane { border-right: 0; border-bottom: 1px solid #8888; }
 }
 
@@ -148,7 +148,7 @@ tbody tr:nth-child(even) { background: #8881; }
 }
 
 </style>
-<title>Storman data</title>
+<title>SharePoint Storage Metrics</title>
 <header>
   <h1>SharePoint Storage Metrics</h1>
   <span id="status">Loading SQLite…</span>
@@ -158,18 +158,19 @@ tbody tr:nth-child(even) { background: #8881; }
   </label>
 </header>
 <div class="workspace">
-  <div class="tree-pane">
-    <div class="tree-controls">
-      <button id="uncheck-all" type="button" disabled>Uncheck all</button>
-    </div>
-    <div id="file-tree" aria-label="Files and folders"></div>
-  </div>
-  <div class="chart-pane">
-    <div class="chart-controls" role="radiogroup" aria-label="Scale">
+  <div class="workspace-controls">
+    <button id="uncheck-all" type="button" disabled>Uncheck all</button>
+    <div class="y-axis-controls" role="radiogroup" aria-label="Y-axis">
       <span>Y-axis:</span>
       <label><input type="radio" name="y-axis-type" value="change-in-size" checked> Change in size</label>
       <label><input type="radio" name="y-axis-type" value="size"> Size</label>
     </div>
+    <label>Start Date: <input id="start-date" type="date"></label>
+  </div>
+  <div class="tree-pane">
+    <div id="file-tree" aria-label="Files and folders"></div>
+  </div>
+  <div class="chart-pane">
     <div id="chart" role="button" tabindex="0" aria-label="Size over time for selected files and folders; click to open a database"></div>
   </div>
 </div>
@@ -12145,6 +12146,7 @@ document.addEventListener("DOMContentLoaded", async function main() {
   const chart = echarts.init(chartElement);
   const selectedNodes = new Map();
   const uncheckAll = document.querySelector("#uncheck-all");
+  const startDate = document.querySelector("#start-date");
   const initialQuery = `SELECT crawl_date, name, path, total_size, percentage_of_site_quota, last_modified, type, details
 FROM storman
 ORDER BY crawl_date DESC, path
@@ -12213,6 +12215,9 @@ LIMIT 1000`;
     const changeInSize =
       document.querySelector('input[name="y-axis-type"]:checked').value ===
       "change-in-size";
+    const startTimestamp = startDate.value === ""
+      ? Number.NEGATIVE_INFINITY
+      : Date.parse(`${startDate.value}T00:00:00Z`) / 1000;
     chart.setOption({
       title: {
         show: selectedNodes.size === 0,
@@ -12222,16 +12227,21 @@ LIMIT 1000`;
       },
       legend: { data: [...selectedNodes.keys()] },
       yAxis: { name: changeInSize ? "Change in size" : "Size" },
-      series: [...selectedNodes.values()].map((selectedNode) => ({
-        name: selectedNode.path,
-        type: "line",
-        showSymbol: selectedNode.xy.length < 50,
-        connectNulls: false,
-        data: selectedNode.xy.map(([timestamp, size]) => [
-          timestamp * 1000,
-          changeInSize ? size - selectedNode.xy[0][1] : size
-        ])
-      }))
+      series: [...selectedNodes.values()].map((selectedNode) => {
+        const xy = selectedNode.xy.filter(
+          ([timestamp]) => timestamp >= startTimestamp
+        );
+        return {
+          name: selectedNode.path,
+          type: "line",
+          showSymbol: xy.length < 50,
+          connectNulls: false,
+          data: xy.map(([timestamp, size]) => [
+            timestamp * 1000,
+            changeInSize ? size - xy[0][1] : size
+          ])
+        };
+      })
     }, { replaceMerge: ["series"] });
     chartElement.classList.toggle(
       "database-drop-target",
@@ -12239,8 +12249,13 @@ LIMIT 1000`;
     );
     uncheckAll.disabled = selectedNodes.size === 0;
   };
-  document.querySelector(".chart-controls").addEventListener("change", (event) => {
-    if (event.target.name === "y-axis-type") drawSelectedNodes();
+  document.querySelector(".workspace-controls").addEventListener("change", (event) => {
+    if (
+      event.target.name === "y-axis-type" ||
+      event.target === startDate
+    ) {
+      drawSelectedNodes();
+    }
   });
 
   const executeQuery = () => {
@@ -12550,14 +12565,13 @@ LIMIT 1000`;
           checkbox.click();
         });
         element.replaceChildren(checkbox, label);
-        element.addEventListener("dblclick", (event) => {
-          if (element.tagName !== "SUMMARY") return;
-          event.preventDefault();
-          event.stopPropagation();
-          element.parentElement.open = !element.parentElement.open;
-        });
+        if (treeData.includes(node)) {
+          checkbox.checked = true;
+          selectedNodes.set(node.path, node);
+        }
       });
       tree.json(treeData);
+      drawSelectedNodes();
 
       if (database) database.close();
       database = nextDatabase;
@@ -28267,4 +28281,3 @@ AABppQAAlqUAAH6lAADAnwAAxqUAAPGlAABCpgAADqYAAAalAAADWAAA950AAFimAADapQAA3Z0A
 ACymAADYpAAANm8AAKGQAADnewAA8I0AAAueAAAAiwAATpMAALOfAAAqpQAAmoIAAP1+AACebQAA
 Z3AAAERwAAAEfgAAEW8AAC+PAAAAIAAAUAUM
 </script>
-
