@@ -307,10 +307,15 @@ def main(browser_context: playwright.sync_api.BrowserContext) -> None:
                     url=next_url, wait_until="domcontentloaded", timeout=120_000
                 )
 
-                # If we are not logged in, ask the user to login and exit.
+                # If we are not logged in, ask the user to complete the login
+                # flow. A subsequent run will reuse the authenticated
+                # persistent browser profile.
                 if page.url.startswith("https://login.microsoftonline.com/"):
                     if not args.no_stderr:
                         print("please complete the login flow", file=sys.stderr)
+                    if not args.headless:
+                        while not cancel_event.is_set() and not page.is_closed():
+                            cancel_event.wait(0.25)
                     return
 
                 # If we got an error code when visiting the page, emit an error
