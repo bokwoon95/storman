@@ -12217,7 +12217,7 @@ LIMIT 1000`;
       "change-in-size";
     const startTimestamp = startDate.value === ""
       ? Number.NEGATIVE_INFINITY
-      : Date.parse(`${startDate.value}T00:00:00Z`) / 1000;
+      : Date.parse(`${startDate.value}T00:00:00`) / 1000;
     chart.setOption({
       title: {
         show: selectedNodes.size === 0,
@@ -12401,7 +12401,7 @@ LIMIT 1000`;
             type,
             percentage_of_site_quota,
             total_size,
-            unixepoch(crawl_date)
+            crawl_date
           FROM storman
           WHERE path IS NOT NULL
             AND path <> ''
@@ -12414,7 +12414,8 @@ LIMIT 1000`;
           const type = statement.get(2);
           const percentageOfSiteQuota = statement.get(3);
           const totalSize = statement.get(4);
-          const crawlDate = statement.get(5);
+          const crawlDate =
+            Date.parse(statement.get(5).replace(" ", "T")) / 1000;
           const parts = path.split("/").filter(Boolean);
           let children = treeData;
           for (let index = 0; index < parts.length; index++) {
@@ -12588,6 +12589,12 @@ LIMIT 1000`;
   };
 
   runQuery.addEventListener("click", executeQuery);
+  queryText.addEventListener("keydown", (event) => {
+    if (event.ctrlKey && event.key === "Enter") {
+      event.preventDefault();
+      executeQuery();
+    }
+  });
   queryText.addEventListener("blur", () => {
     if (queryText.value.trim() === "") queryText.value = initialQuery;
   });
