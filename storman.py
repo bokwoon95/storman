@@ -13,8 +13,10 @@ import datetime
 import os
 import posixpath
 import random
+import shutil
 import signal
 import sqlite3
+import subprocess
 import sys
 import threading
 import typing
@@ -105,6 +107,7 @@ class DiscardWriter:
 @dataclasses.dataclass
 class Args(argparse.Namespace):
     browser: str = ""
+    just_open_browser: bool = False
     headless: bool = False
     tenant: str = ""
     site: str = ""
@@ -126,6 +129,12 @@ parser.add_argument(
     choices=("chrome", "firefox"),
     default="chrome",
     help="Which browser to use for web scraping. Default is chrome.",
+)
+parser.add_argument(
+    "--just-open-browser",
+    action="store_true",
+    default=False,
+    help="Just open the browser using the scraping user profile directory and return.",
 )
 parser.add_argument(
     "--headless",
@@ -192,7 +201,7 @@ parser.add_argument(
 args = Args(**vars(parser.parse_args()))
 
 # Validate arguments.
-if args.tenant == "" or args.site == "":
+if not args.just_open_browser and (args.tenant == "" or args.site == ""):
     print("both --tenant and --site must be provided", file=sys.stderr)
     raise SystemExit(1)
 if args.delay_min < 0 or args.delay_max < args.delay_min:
@@ -515,8 +524,148 @@ def main(browser_context: playwright.sync_api.BrowserContext) -> None:
 
 
 if __name__ == "__main__":
+    binary_path = None
+    if args.invisible_playwright:
+        binary_path = invisible_playwright.ensure_binary(
+            status=lambda phase: print(
+                "Downloading patched Firefox binaries...",
+                file=sys.stderr,
+            )
+            if phase == "downloading" and not args.no_stderr
+            else None
+        )
+
+    if args.just_open_browser:
+        if not args.no_stderr:
+            print(
+                f"Opening browser: {'patched firefox' if args.invisible_playwright else args.browser}",
+                file=sys.stderr,
+                flush=True,
+            )
+        if args.invisible_playwright:
+            profile_path = os.path.expanduser("~/Documents/FirefoxProfile")
+            if not args.no_stderr:
+                print(f"Browser executable: {binary_path}", file=sys.stderr, flush=True)
+                print(f"Browser profile: {profile_path}", file=sys.stderr, flush=True)
+            process = subprocess.Popen(
+                [
+                    str(binary_path),
+                    "-profile",
+                    profile_path,
+                    "-no-remote",
+                ]
+            )
+        elif args.browser == "firefox":
+            executable_path = next(
+                (
+                    path
+                    for path in (
+                        shutil.which("firefox"),
+                        os.path.join(
+                            os.environ.get("ProgramFiles", ""),
+                            "Mozilla Firefox",
+                            "firefox.exe",
+                        ),
+                        os.path.join(
+                            os.environ.get("ProgramFiles(x86)", ""),
+                            "Mozilla Firefox",
+                            "firefox.exe",
+                        ),
+                        "/Applications/Firefox.app/Contents/MacOS/firefox",
+                    )
+                    if path is not None and os.path.isfile(path)
+                ),
+                None,
+            )
+            if executable_path is None:
+                print(
+                    "Firefox is not installed or could not be found.",
+                    file=sys.stderr,
+                )
+                raise SystemExit(1)
+            profile_path = os.path.expanduser("~/Documents/FirefoxProfile")
+            if not args.no_stderr:
+                print(
+                    f"Browser executable: {executable_path}",
+                    file=sys.stderr,
+                    flush=True,
+                )
+                print(f"Browser profile: {profile_path}", file=sys.stderr, flush=True)
+            process = subprocess.Popen(
+                [
+                    executable_path,
+                    "-profile",
+                    profile_path,
+                    "-no-remote",
+                ]
+            )
+        else:
+            executable_path = next(
+                (
+                    path
+                    for path in (
+                        shutil.which("chrome"),
+                        shutil.which("google-chrome"),
+                        shutil.which("google-chrome-stable"),
+                        os.path.join(
+                            os.environ.get("LOCALAPPDATA", ""),
+                            "Google",
+                            "Chrome",
+                            "Application",
+                            "chrome.exe",
+                        ),
+                        os.path.join(
+                            os.environ.get("ProgramFiles", ""),
+                            "Google",
+                            "Chrome",
+                            "Application",
+                            "chrome.exe",
+                        ),
+                        os.path.join(
+                            os.environ.get("ProgramFiles(x86)", ""),
+                            "Google",
+                            "Chrome",
+                            "Application",
+                            "chrome.exe",
+                        ),
+                        "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
+                    )
+                    if path is not None and os.path.isfile(path)
+                ),
+                None,
+            )
+            if executable_path is None:
+                print(
+                    "Chrome is not installed or could not be found.",
+                    file=sys.stderr,
+                )
+                raise SystemExit(1)
+            profile_path = os.path.expanduser("~/Documents/ChromeProfile")
+            if not args.no_stderr:
+                print(
+                    f"Browser executable: {executable_path}",
+                    file=sys.stderr,
+                    flush=True,
+                )
+                print(f"Browser profile: {profile_path}", file=sys.stderr, flush=True)
+            process = subprocess.Popen(
+                [
+                    executable_path,
+                    f"--user-data-dir={profile_path}",
+                ]
+            )
+        if not args.no_stderr:
+            print(f"Browser process started with PID {process.pid}", file=sys.stderr)
+            print(
+                f"Immediate process exit code: {process.poll()}",
+                file=sys.stderr,
+                flush=True,
+            )
+        raise SystemExit()
+
     if args.invisible_playwright:
         with invisible_playwright.InvisiblePlaywright(
+            binary_path=str(binary_path),
             profile_dir=os.path.expanduser("~/Documents/FirefoxProfile"),
             headless=args.headless,
         ) as browser_context:
