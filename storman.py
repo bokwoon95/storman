@@ -1,7 +1,8 @@
 # 1. Install uv.
 #   powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
-# 2. Add dependencies.
-#   uv add playwright "invisible_playwright @ git+https://github.com/feder-cr/invisible_playwright.git"
+# 2. Add dependencies and download Camoufox.
+#   uv add camoufox playwright
+#   uv run camoufox fetch
 # 3. Run the script.
 #   uv run storman.py
 
@@ -22,7 +23,8 @@ import threading
 import typing
 import urllib.parse
 
-import invisible_playwright
+import camoufox.pkgman
+import camoufox.sync_api
 import playwright.sync_api
 
 
@@ -111,7 +113,7 @@ class Args(argparse.Namespace):
     headless: bool = False
     tenant: str = ""
     site: str = ""
-    invisible_playwright: bool = False
+    camoufox: bool = False
     delay_min: float = 0
     delay_max: float = 0
     above_percentage_of_site_quota: float = 0.0
@@ -145,10 +147,10 @@ parser.add_argument(
 parser.add_argument("--tenant", type=str, default="", help="SharePoint tenant name.")
 parser.add_argument("--site", type=str, default="", help="SharePoint site name.")
 parser.add_argument(
-    "--invisible-playwright",
+    "--camoufox",
     action="store_true",
     default=False,
-    help="Whether to use invisible_playwright instead of playwright for web scraping. invisible_playwright is a more stealth-focused web scraping library that uses a patched version of firefox to avoid leaking hints that we are operating a web scraper. Likely not needed for SharePoint unless we start getting blocked.",
+    help="Whether to use Camoufox instead of Playwright for web scraping. Camoufox is a more stealth-focused browser that uses a patched version of Firefox to avoid leaking hints that we are operating a web scraper. Likely not needed for SharePoint unless we start getting blocked.",
 )
 parser.add_argument(
     "--delay-min",
@@ -256,7 +258,7 @@ def main(browser_context: playwright.sync_api.BrowserContext) -> None:
     # other exceptions through.
     try:
         # Obtain a new page.
-        if len(browser_context.pages) > 0:  # and not args.invisible_playwright:
+        if len(browser_context.pages) > 0:
             page = browser_context.pages[0]
         else:
             page = browser_context.new_page()
@@ -524,25 +526,15 @@ def main(browser_context: playwright.sync_api.BrowserContext) -> None:
 
 
 if __name__ == "__main__":
-    binary_path = None
-    if args.invisible_playwright:
-        binary_path = invisible_playwright.ensure_binary(
-            status=lambda phase: print(
-                "Downloading patched Firefox binaries...",
-                file=sys.stderr,
-            )
-            if phase == "downloading" and not args.no_stderr
-            else None
-        )
-
     if args.just_open_browser:
         if not args.no_stderr:
             print(
-                f"Opening browser: {'patched firefox' if args.invisible_playwright else args.browser}",
+                f"Opening browser: {'Camoufox' if args.camoufox else args.browser}",
                 file=sys.stderr,
                 flush=True,
             )
-        if args.invisible_playwright:
+        if args.camoufox:
+            binary_path = camoufox.pkgman.launch_path()
             profile_path = os.path.expanduser("~/Documents/FirefoxProfile")
             if not args.no_stderr:
                 print(f"Browser executable: {binary_path}", file=sys.stderr, flush=True)
@@ -663,11 +655,12 @@ if __name__ == "__main__":
             )
         raise SystemExit()
 
-    if args.invisible_playwright:
-        with invisible_playwright.InvisiblePlaywright(
-            binary_path=str(binary_path),
-            profile_dir=os.path.expanduser("~/Documents/FirefoxProfile"),
+    if args.camoufox:
+        with camoufox.sync_api.Camoufox(
             headless=args.headless,
+            humanize=True,
+            persistent_context=True,
+            user_data_dir=os.path.expanduser("~/Documents/FirefoxProfile"),
         ) as browser_context:
             main(typing.cast(playwright.sync_api.BrowserContext, browser_context))
     else:

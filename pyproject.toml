@@ -3,16 +3,13 @@ name = "storman"
 version = "0.1.0"
 requires-python = ">=3.12"
 dependencies = [
-    "invisible-playwright",
+    "camoufox>=0.4.11",
     "playwright>=1.55.0",
 ]
 
 [tool.pyright]
 venvPath = "."
 venv = ".venv"
-
-[tool.uv.sources]
-invisible-playwright = { git = "https://github.com/feder-cr/invisible_playwright.git" }
 
 [tool.ruff.lint]
 extend-select = ["I"]
