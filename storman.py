@@ -314,7 +314,7 @@ def main(browser_context: playwright.sync_api.BrowserContext) -> None:
                         f"{datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')} visiting {next_url}",
                         file=sys.stderr,
                     )
-                while True:
+                for attempt in range(1, 11):
                     try:
                         response = page.goto(
                             url=next_url,
@@ -327,10 +327,17 @@ def main(browser_context: playwright.sync_api.BrowserContext) -> None:
                         # Print the caught error with Python's normal traceback
                         # formatting.
                         sys.excepthook(type(error), error, error.__traceback__)
-                        if input("Retry? y/n: ").strip().lower() == "y":
-                            continue
-                        raise SystemExit(1)
-                    break
+                        if attempt == 10:
+                            raise SystemExit(1)
+                        wait_duration = 2 ** (attempt - 1) + random.uniform(0, 1)
+                        print(
+                            f"waiting for {wait_duration:.1f}s...",
+                            file=sys.stderr,
+                        )
+                        if cancel_event.wait(wait_duration):
+                            break
+                    else:
+                        break
                 if cancel_event.is_set():
                     break
 
