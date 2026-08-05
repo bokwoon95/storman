@@ -314,9 +314,25 @@ def main(browser_context: playwright.sync_api.BrowserContext) -> None:
                         f"{datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')} visiting {next_url}",
                         file=sys.stderr,
                     )
-                response = page.goto(
-                    url=next_url, wait_until="domcontentloaded", timeout=120_000
-                )
+                while True:
+                    try:
+                        response = page.goto(
+                            url=next_url,
+                            wait_until="domcontentloaded",
+                            timeout=15_000,
+                        )
+                    except Exception as error:
+                        if cancel_event.is_set() or page.is_closed():
+                            raise
+                        # Print the caught error with Python's normal traceback
+                        # formatting.
+                        sys.excepthook(type(error), error, error.__traceback__)
+                        if input("Retry? y/n: ").strip().lower() == "y":
+                            continue
+                        raise SystemExit(1)
+                    break
+                if cancel_event.is_set():
+                    break
 
                 # If we are not logged in, ask the user to complete the login
                 # flow. A subsequent run will reuse the authenticated
