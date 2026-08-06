@@ -20,6 +20,7 @@ import sqlite3
 import subprocess
 import sys
 import threading
+import time
 import typing
 import urllib.parse
 
@@ -314,7 +315,8 @@ def main(browser_context: playwright.sync_api.BrowserContext) -> None:
                         f"{datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')} visiting {next_url}",
                         file=sys.stderr,
                     )
-                for attempt in range(1, 11):
+                retry_declined = False
+                while True:
                     try:
                         response = page.goto(
                             url=next_url,
@@ -327,18 +329,75 @@ def main(browser_context: playwright.sync_api.BrowserContext) -> None:
                         # Print the caught error with Python's normal traceback
                         # formatting.
                         sys.excepthook(type(error), error, error.__traceback__)
-                        if attempt == 10:
-                            raise SystemExit(1)
-                        wait_duration = 2 ** (attempt - 1) + random.uniform(0, 1)
-                        print(
-                            f"waiting for {wait_duration:.1f}s...",
-                            file=sys.stderr,
+
+                        # input() has no timeout, so run it in a daemon thread
+                        # while this thread keeps track of the 180-second limit.
+                        # The list lets the input thread pass its answer back.
+                        retry_answers = []
+                        retry_thread = threading.Thread(
+                            target=lambda: retry_answers.append(input("Retry? y/n ")),
+                            daemon=True,
                         )
-                        if cancel_event.wait(wait_duration):
+                        retry_thread.start()
+                        retry_deadline = time.monotonic() + 180
+
+                        # Wait until the user answers, input() stops, the
+                        # deadline passes, or the crawl is canceled.
+                        while (
+                            len(retry_answers) == 0
+                            and retry_thread.is_alive()
+                            and time.monotonic() < retry_deadline
+                            and not cancel_event.is_set()
+                        ):
+                            cancel_event.wait(
+                                min(0.1, retry_deadline - time.monotonic())
+                            )
+
+                        if cancel_event.is_set():
                             break
+                        if (
+                            len(retry_answers) > 0
+                            and retry_answers[0].strip().lower() == "y"
+                        ):
+                            continue
+                        if (
+                            len(retry_answers) > 0
+                            and retry_answers[0].strip().lower() == "n"
+                        ):
+                            retry_declined = True
+                            break
+
+                        for wait_seconds in [2, 5, 10, 20, 40, 80, 160, 320]:
+                            print(
+                                f"waiting for {wait_seconds}s...",
+                                file=sys.stderr,
+                            )
+                            if cancel_event.wait(wait_seconds):
+                                break
+                            try:
+                                response = page.goto(
+                                    url=next_url,
+                                    wait_until="domcontentloaded",
+                                    timeout=15_000,
+                                )
+                            except Exception as error:
+                                if cancel_event.is_set() or page.is_closed():
+                                    raise
+                                sys.excepthook(
+                                    type(error), error, error.__traceback__
+                                )
+                            else:
+                                break
+                        else:
+                            raise SystemExit(1)
+                        if cancel_event.is_set():
+                            break
+                        break
                     else:
                         break
                 if cancel_event.is_set():
+                    break
+                if retry_declined:
                     break
 
                 # If we are not logged in, ask the user to complete the login
